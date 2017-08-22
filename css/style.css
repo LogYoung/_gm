@@ -1,0 +1,27 @@
+.container {
+	width: 320px;
+	height: 568px;
+	position: relative;
+	margin:50px auto;
+	border:1px solid;
+	overflow: hidden;
+}
+
+.start {
+	width: 320px;
+	height: 568px;
+	background: url("../images/start_bg.png");
+}
+
+.main {
+	width: 320px;
+	height: 568px;
+	background: url("../images/bg.png");
+}
+
+.score {
+	position: absolute;
+	top: 10px;
+	left:10px;
+	display: none;
+}

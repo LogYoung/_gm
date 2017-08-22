@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>飞机大战</title>
+	<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+	<div class="container">
+		<div class="start"></div>
+		<div class="main">
+			<div class="score">分数：<span>0</span> 分</div>
+		</div>
+	</div>
+
+	<script src="js/tools.js"></script>
+	<script>
+		on($(".start")[0], "click", function(){
+			hide(this);
+			show($(".score")[0]);
+			var game = new Game();
+			game.init();
+			game.registerEventListener();
+			game.play();
+		});
+
+		var Tools = {
+			pengpeng : function(obj1, obj2) { // 判断两个矩形是否交叉、两个矩形的物体是否碰撞
+				return !(obj1.x > obj2.x + obj2.width
+					|| obj1.x + obj1.width < obj2.x
+					|| obj1.y > obj2.y + obj2.height
+					|| obj1.y + obj1.height < obj2.y)
+			} 
+		}
+
+		// 地图构造函数
+		function Map(width, height, element) {
+			this.width = width;
+			this.height = height;
+			this.element = element || $(".main")[0];
+		}
+
+		// 公共函数，复用，继承
+		function Role(width, height, x, y, imgSrc) {
+			this.width = width;
+			this.height = height;
+			this.x = x;
+			this.y = y;
+			this.element = null;
+			this.imgSrc = imgSrc;
+			this.map = null; // 保存与当前角色关联的地图对象
+			this.isAlive = true; // 标识当前角色是否还活着
+			this.hp = 0; // 血量
+		}
+
+		Role.prototype = {
+			init : function(){ // 初始化创建 DOM 元素
+				// 创建DOM元素
+				var _e = this.element = document.createElement("img");
+				// 设置图片路径
+				_e.src = this.imgSrc;
+				// 设置DOM元素
+				css(_e, {
+					width : this.width + "px",
+					height : this.height + "px",
+					position : "absolute",
+					top: this.y + "px",
+					left : this.x + "px"
+				});
+				// 将当前创建的DOM元素添加到地图中
+				this.map.element.appendChild(_e);
+			},
+			move : function(){ // 自动移动一步
+				this.y += this.speed;
+				css(this.element, {
+					top : this.y + "px"
+				});
+
+				if (this.y < 0 || this.y > this.map.height) {
+					this.element.parentNode.removeChild(this.element);
+					this.isAlive = false;
+				}
+			}
+		}
+
+		// 自己战机
+		function Self(width, height, x, y, imgSrc) {
+			Role.apply(this, arguments);
+		}
+		Self.prototype = new Role();
+
+		// 敌机
+		function Enemy(width, height, x, y, imgSrc, speed, score) {
+			Role.apply(this, arguments);
+			this.speed = speed;
+			this.score = score;
+		}
+		Enemy.prototype = new Role();
+
+		// 子弹
+		function Bullet(width, height, x, y, imgSrc, speed) {
+			Role.apply(this, arguments);
+			this.speed = speed;
+		}
+		Bullet.prototype = new Role();
+
+		// 平台
+		function Game() {
+			this.map = null;
+			this.self = null;
+			this.enemies = []; // 存放所有敌机的数组
+			this.bullets = []; // 存放所有子弹的数组
+			this.score = 0;
+		}
+
+		Game.prototype = {
+			init : function(){
+				this.map = new Map(320, 568);
+				this.self = new Self(66, 80, 100, 300, "images/self.gif");
+				this.self.map = this.map; // 建立战机与地图的关联关系
+				this.self.init();
+			},
+			registerEventListener : function(){
+				var that = this;
+				// 在地图上移动鼠标指针，战机跟随鼠标移动
+				this.map.element.onmousemove = function(e){
+					e = e || event;
+					offset(that.self.element, {
+						top : e.pageY - that.self.height / 2,
+						left : e.pageX - that.self.width / 2
+					});
+					var _top = that.self.element.offsetTop,
+						_left = that.self.element.offsetLeft;
+					if (_top <= 0 )
+						_top = 0;
+					else if (_top >= that.map.height - that.self.height)
+						_top = that.map.height - that.self.height;
+					if (_left <= 0)
+						_left = 0;
+					else if (_left >= that.map.width - that.self.width)
+						_left = that.map.width - that.self.width;
+					css(that.self.element, {
+						top : _top + "px",
+						left : _left + "px"
+					});
+					// 设置战机在地图中的坐标
+					that.self.x = _left;
+					that.self.y = _top;
+				};
+			},
+			play : function(){ // 一局
+				var that = this,
+					count = 0; // 记录计时函数执行次数
+				setInterval(function(){
+					count++;
+					if (count % 30 === 0) { // 产生小飞机
+						var rand = Math.floor(Math.random() * that.map.width);
+						// 生成敌机
+						var enemy = new Enemy(34, 24, rand, 30, "images/small_fly.png", 3, 1000);
+						// 与地图关联
+						enemy.map = that.map;
+						// 初始化
+						enemy.init();
+						// 添加到数组中保存
+						that.enemies.push(enemy);
+					}
+
+					if (count % 300 === 0) { // 产生中飞机
+						var rand = Math.floor(Math.random() * that.map.width);
+						// 生成敌机
+						var enemy = new Enemy(46, 60, rand, 30, "images/mid_fly.png", 1, 5000);
+						// 与地图关联
+						enemy.map = that.map;
+						// 初始化
+						enemy.init();
+						// 添加到数组中保存
+						that.enemies.push(enemy);
+					}
+
+					if (count % 10 === 0) { // 产生子弹
+						var x = that.self.x + that.self.width / 2,
+							y = that.self.y - 20;
+						var bullet = new Bullet(6, 15, x, y, "images/bullet.png", -3);
+						bullet.map = that.map;
+						bullet.init();
+						that.bullets.push(bullet);
+					}
+
+					// 敌机移动
+					for (var i = that.enemies.length - 1; i >= 0; i--) {
+						that.enemies[i].move();
+						if (!that.enemies[i].isAlive)
+							that.enemies.splice(i, 1);
+					}
+					// 子弹移动
+					for (var i = that.bullets.length - 1; i >= 0; i--) {
+						that.bullets[i].move();
+						if (!that.bullets[i].isAlive)
+							that.bullets.splice(i, 1);
+					}
+					// 判断敌机与子弹是否碰撞
+					for (var i = that.enemies.length - 1; i >= 0; i--) {
+						for (var j = that.bullets.length - 1; j >= 0; j--) {
+							if (Tools.pengpeng(that.enemies[i], that.bullets[j])) { // 碰撞到
+								// 记录积分
+								that.score += that.enemies[i].score;
+								// 从页面中移动DOM节点
+								that.map.element.removeChild(that.enemies[i].element);
+								that.map.element.removeChild(that.bullets[j].element);
+								// 从数组中删除元素
+								that.enemies.splice(i, 1);
+								that.bullets.splice(j, 1);
+								// 显示积分
+								$("span", that.map.element)[0].innerHTML = that.score;
+								break;
+							}
+						}
+					}
+				}, 1000 / 60);
+			}
+		}
+	</script>
+</body>
+</html>
